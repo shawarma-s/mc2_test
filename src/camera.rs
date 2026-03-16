@@ -1,5 +1,6 @@
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
+use bevy::window::{CursorGrabMode, CursorOptions};
 use std::f32::consts::PI;
 
 pub struct FlyCameraPlugin;
@@ -7,7 +8,7 @@ pub struct FlyCameraPlugin;
 impl Plugin for FlyCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_camera)
-            .add_systems(Update, (rotate_camera, move_camera));
+            .add_systems(Update, (rotate_camera, move_camera, toggle_cursor));
     }
 }
 
@@ -17,15 +18,17 @@ pub struct FlyCamera {
     pub speed: f32,
     pub yaw: f32,
     pub pitch: f32,
+    pub is_locked: bool,
 }
 
 impl Default for FlyCamera {
     fn default() -> Self {
         Self {
             sensitivity: 0.1,
-            speed: 10.0,
+            speed: 30.0,
             yaw: -90.0f32.to_radians(),
             pitch: 0.0,
+            is_locked: true,
         }
     }
 }
@@ -38,6 +41,25 @@ fn setup_camera(mut commands: Commands) {
     ));
 }
 
+fn toggle_cursor(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut query: Query<&mut FlyCamera>,
+    mut cursor_options: Single<&mut CursorOptions, With<Window>>,
+) {
+    if keys.just_pressed(KeyCode::Escape) {
+        for mut fly_camera in query.iter_mut() {
+            fly_camera.is_locked = !fly_camera.is_locked;
+            if fly_camera.is_locked {
+                cursor_options.grab_mode = CursorGrabMode::Locked;
+                cursor_options.visible = false;
+            } else {
+                cursor_options.grab_mode = CursorGrabMode::None;
+                cursor_options.visible = true;
+            }
+        }
+    }
+}
+
 fn rotate_camera(
     mut mouse_motion_events: MessageReader<MouseMotion>,
     mut query: Query<(&mut Transform, &mut FlyCamera)>,
@@ -47,8 +69,12 @@ fn rotate_camera(
         rotation_delta += event.delta;
     }
 
-    if rotation_delta.length_squared() > 0.0 {
-        for (mut transform, mut fly_camera) in query.iter_mut() {
+    for (mut transform, mut fly_camera) in query.iter_mut() {
+        if !fly_camera.is_locked {
+            continue;
+        }
+
+        if rotation_delta.length_squared() > 0.0 {
             fly_camera.yaw -= rotation_delta.x * fly_camera.sensitivity.to_radians();
             fly_camera.pitch -= rotation_delta.y * fly_camera.sensitivity.to_radians();
 
@@ -66,6 +92,10 @@ fn move_camera(
     mut query: Query<(&mut Transform, &FlyCamera)>,
 ) {
     for (mut transform, fly_camera) in query.iter_mut() {
+        if !fly_camera.is_locked {
+            continue;
+        }
+
         let mut velocity = Vec3::ZERO;
         let forward = *transform.forward();
         let right = *transform.right();

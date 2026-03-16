@@ -67,9 +67,7 @@ fn setup_materials(mut materials: ResMut<Assets<StandardMaterial>>, mut terrain_
         ..default()
     });
     terrain_mats.water = materials.add(StandardMaterial {
-        base_color: Color::srgba(0.0, 0.4, 0.8, 0.6),
-        alpha_mode: AlphaMode::Blend,
-        metallic: 0.1,
+        base_color: Color::srgb(0.0, 0.4, 0.8),
         perceptual_roughness: 0.1,
         ..default()
     });
@@ -196,13 +194,11 @@ fn spawn_chunk(
                 }
 
                 if height < sea_level {
-                    for y in (height + 1)..=sea_level {
-                        parent.spawn((
-                            Mesh3d(mesh_handle.clone()),
-                            MeshMaterial3d(materials.water.clone()),
-                            Transform::from_xyz(world_x as f32, y as f32, world_z as f32),
-                        ));
-                    }
+                    parent.spawn((
+                        Mesh3d(mesh_handle.clone()),
+                        MeshMaterial3d(materials.water.clone()),
+                        Transform::from_xyz(world_x as f32, sea_level as f32, world_z as f32),
+                    ));
                 }
             }
         }
